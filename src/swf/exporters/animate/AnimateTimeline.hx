@@ -9,6 +9,9 @@ import openfl.display.Scene;
 import openfl.display.Shape;
 import openfl.display.Sprite;
 import openfl.display.Timeline;
+import openfl.events.Event;
+import openfl.utils.Function;
+import swf.exporters.animate.AnimateSymbol;
 // import openfl.events.Event;
 import openfl.filters.BitmapFilter;
 import openfl.filters.BlurFilter;
@@ -18,6 +21,12 @@ import openfl.filters.DisplacementMapFilter;
 import openfl.filters.DropShadowFilter;
 import openfl.filters.GlowFilter;
 import openfl.geom.ColorTransform;
+import swf.timeline.SoundStream;
+
+import lime.media.AudioBuffer;
+import openfl.media.Sound;
+import openfl.media.SoundChannel;
+
 #if hscript
 import hscript.Interp;
 import hscript.Parser;
@@ -51,6 +60,12 @@ class AnimateTimeline extends Timeline
 	@:noCompletion private var __previousFrame:Int;
 	@:noCompletion private var __sprite:Sprite;
 	@:noCompletion private var __symbol:AnimateSpriteSymbol;
+	@:noCompletion private var __soundStream:SoundStream;
+	@:noCompletion private var __sound:Sound;
+	@:noCompletion private var __soundChannel:SoundChannel;
+	@:noCompletion private var __soundPosition:Float;
+	
+	public var onSoundComplete:Function;
 
 	public function new(library:AnimateLibrary, symbol:AnimateSpriteSymbol)
 	{
@@ -58,7 +73,12 @@ class AnimateTimeline extends Timeline
 
 		__library = library;
 		__symbol = symbol;
-
+		
+		if (__symbol.hasSoundStream){
+			__soundStream = __symbol.soundStream;
+			__sound = Sound.fromAudioBuffer(library.getAudioBuffer(__symbol.soundStream.path));
+			
+		}
 		frameRate = library.frameRate;
 		var labels = [];
 		scripts = [];
@@ -69,12 +89,13 @@ class AnimateTimeline extends Timeline
 		#if hscript
 		var parser = null;
 		#end
-
 		for (i in 0...__symbol.frames.length)
 		{
 			frame = i + 1;
 			frameData = __symbol.frames[i];
-
+	
+			
+			
 			if (frameData.labels != null)
 			{
 				for (label in frameData.labels)
@@ -148,16 +169,110 @@ class AnimateTimeline extends Timeline
 					}
 				}
 			}
+			
+		/*	if (frameData.scenes != null)
+			{
+				for (scene in frameData.scenes)
+				{
+					scenes.push(new Scene(scene.name, labels, __symbol.frames.length));
+				}
+			}*/
+			
 		}
-
-		scenes = [new Scene("", labels, __symbol.frames.length)];
+		
+		if(__symbol.scenes.length>0){
+			//scenes = __symbol.scenes;
+			scenes = __symbol.scenes;
+		}else{
+			scenes = [new Scene("", labels, __symbol.frames.length)];
+		}
+	
+		
 	}
 
+	private function changeSymbol():Void
+	{
+		
+	}
 	public override function attachMovieClip(movieClip:MovieClip):Void
 	{
 		init(movieClip);
 	}
 
+	public override function __play():Void
+	{
+		if (__isPlaying || __totalFrames < 2) return;
+
+		__isPlaying = true;
+
+		if (frameRate != null)
+		{
+			__frameTime = Std.int(1000 / frameRate);
+			__timeElapsed = 0;
+		}
+		if (__symbol.hasSoundStream && __soundPosition!=null&&__soundPosition!=0){
+			__soundChannel = __sound.play();
+			__soundChannel.position = __soundPosition;
+			__soundPosition = null;
+			__soundChannel.addEventListener(Event.SOUND_COMPLETE, __onSoundComplete );
+		}
+	}
+	
+	public override function __gotoAndPlay(frame:#if (haxe_ver >= "3.4.2") Any #else Dynamic #end, scene:String = null):Void
+	{
+		__soundPosition = null;
+		__play();
+		__goto(__resolveFrameReference(frame));
+	}
+
+	public override function __gotoAndStop(frame:#if (haxe_ver >= "3.4.2") Any #else Dynamic #end, scene:String = null):Void
+	{
+		__stop();
+		__goto(__resolveFrameReference(frame));
+	}
+
+	public override function __nextScene():Void
+	{
+		__stop();
+		__soundPosition = null;
+		var currentMovieclip:MovieClip = cast(__scope.getChildAt(0), MovieClip);
+		currentMovieclip.stop();
+		
+		if (scenes.indexOf(__currentScene) + 1 < scenes.length){
+			__currentScene = scenes[scenes.indexOf(__currentScene) + 1];	
+		
+			__goto(__resolveFrameReference(__currentScene.frameNumber));
+		}
+	}
+		
+	public override function __prevScene():Void
+	{
+		__stop();
+		__soundPosition = null;
+		var currentMovieclip:MovieClip = cast(__scope.getChildAt(0), MovieClip);
+		currentMovieclip.stop();
+		
+		if (scenes.indexOf(__currentScene) - 1 > 0){
+			__currentScene = scenes[scenes.indexOf(__currentScene) - 1];	
+		
+			__goto(__resolveFrameReference(__currentScene.frameNumber));
+		}
+		
+	}
+	
+	public override function __stop():Void
+	{
+		__isPlaying = false;
+		
+		if (__soundChannel!=null&&__soundChannel.hasEventListener(Event.SOUND_COMPLETE)){
+			__soundChannel.removeEventListener(Event.SOUND_COMPLETE, __onSoundComplete );
+			__soundPosition = __soundChannel.position;
+			__soundChannel.stop();
+
+		}
+		
+	}
+	
 	public override function enterFrame(currentFrame:Int):Void
 	{
 		if (__symbol != null && currentFrame != __previousFrame)
@@ -169,9 +284,18 @@ class AnimateTimeline extends Timeline
 			var updateFrameStart = __previousFrame < currentFrame ? (__previousFrame == -1 ? 0 : __previousFrame) : 0;
 			var skipFrame = false;
 
+			if (__symbol.hasSoundStream){
+					if (currentFrame == __soundStream.startFrame){
+						__soundChannel = __sound.play();
+						__soundChannel.addEventListener(Event.SOUND_COMPLETE, __onSoundComplete );
+					}
+					
+				}
+				
 			// TODO: A lot more optimizing!
 			if (currentFrame == 1 && __previousFrame > currentFrame && __symbol.frames[0].objects != null)
 			{
+				
 				// Do nothing (on looping) if this clip has only one frame
 				skipFrame = true;
 				for (i in 1...__symbol.frames.length)
@@ -331,6 +455,14 @@ class AnimateTimeline extends Timeline
 		}
 	}
 
+	private function __onSoundComplete(e:Event = null):Void
+	{
+		__soundChannel.removeEventListener(Event.SOUND_COMPLETE, __onSoundComplete );
+		if (onSoundComplete !=null){			
+			onSoundComplete();
+		}
+	}
+	
 	private function init(sprite:Sprite):Void
 	{
 		if (__activeInstances != null) return;
@@ -353,8 +485,8 @@ class AnimateTimeline extends Timeline
 		var displayObject:DisplayObject;
 
 		// TODO: Create later?
-
-		for (i in 0...scenes[0].numFrames)
+//DO FOR every scenes pre or on the fly. beter pre
+		for (i in 0...scenes.length)
 		{
 			frame = i + 1;
 			frameData = __symbol.frames[i];

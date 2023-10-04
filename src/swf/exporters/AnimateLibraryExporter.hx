@@ -30,6 +30,7 @@ import swf.tags.TagSymbolClass;
 import swf.utils.SymbolUtils;
 import swf.SWFRoot;
 import swf.SWFTimelineContainer;
+import swf.timeline.SoundStream;
 import haxe.Template;
 import hxp.Haxelib;
 import hxp.Log;
@@ -65,6 +66,7 @@ class AnimateLibraryExporter
 	private var manifestData:AssetManifest;
 	private var outputList:List<Entry>;
 	private var swfData:SWFRoot;
+	private var soundSymbols:Array<SWFSymbol>;
 	private var symbols:Array<SWFSymbol>;
 	private var symbolsByTagID:Map<Int, SWFSymbol>;
 	private var targetPath:String;
@@ -75,6 +77,7 @@ class AnimateLibraryExporter
 		this.targetPath = targetPath;
 
 		symbols = [];
+		soundSymbols = [];
 		symbolsByTagID = new Map();
 
 		for (tag in swfData.tags)
@@ -103,12 +106,13 @@ class AnimateLibraryExporter
 		libraryData.uuid = uuid;
 		libraryData.frameRate = swfData.frameRate;
 		addSprite(swfData, true);
-
+		//addSound2(swfData);
 		for (symbol in symbols)
 		{
 			processSymbol(symbol);
 		}
-
+		//symbols.push(soundSymbols);
+Log.info("processSymbol end");
 		var libraryJSON = libraryData.serialize();
 		var bytes = new ByteArray();
 		bytes.writeUTFBytes(libraryJSON);
@@ -673,7 +677,9 @@ class AnimateLibraryExporter
 			frameObject:Dynamic,
 			frameData,
 			placeTag:TagPlaceObject;
-
+			
+		
+		
 		for (frameData in tag.frames)
 		{
 			frame = {};
@@ -681,6 +687,13 @@ class AnimateLibraryExporter
 			if (frameData.labels != null)
 			{
 				frame.labels = frameData.labels;
+				
+				for (scene in tag.scenes) 
+				{
+					if (scene.frameNumber == symbol.frames.length){
+						scene.labels = frameData.labels;
+					}
+				}
 			}
 
 			instances.splice(0, instances.length);
@@ -794,6 +807,15 @@ class AnimateLibraryExporter
 			symbol.frames.push(frame);
 		}
 
+		symbol.scenes = tag.scenes;
+		if(tag.soundStream!=null){
+			symbol.soundStream = tag.soundStream;
+			addSound2(tag.soundStream);
+		}
+		if (tag.soundStream != null){
+			Log.info("tag.soundStream != null ");
+		}
+		
 		var scalingGrid = swfData.getScalingGrid(symbol.id);
 		if (scalingGrid != null && scalingGrid.splitter != null)
 		{
@@ -1051,10 +1073,89 @@ class AnimateLibraryExporter
 		return symbol;
 	}
 
+	private function addSound2(tag:SoundStream):Void
+	{
+		if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, SoundStream))
+		{
+			var symbol:Dynamic = {};
+			symbol.type = SWFSymbolType.SOUND;
+			symbol.id = tag.id;
+			symbol.tagId = tag.id;
+			symbol.path = "symbols/" + tag.id + "." + "mp3";
+
+			
+			Log.info("Sound exists "+tag.id);
+			
+			
+
+			// TODO
+
+			 			var entry:Entry = {
+			 				fileName: symbol.path,
+			 				fileSize: tag.data.length,
+			 				fileTime: Date.now(),
+			 				compressed: false,
+			 				dataSize: 0,
+			 				data: tag.data,
+			 				crc32: Crc32.make(tag.data)
+			 			};
+			 			outputList.add(entry);
+
+				manifestData.assets.push({
+				path: symbol.path,
+				type: AssetType.SOUND
+			});
+			
+			libraryData.symbols.set(symbol.tagId, symbol);
+			//soundSymbols.push(symbol);
+			  //var createdDirectory = false;
+			 	/*	for (id in exporter.sounds.keys())
+			 		{
+			 			if (!createdDirectory)
+			 			{
+			 				System.mkdir(Path.combine(targetPath, "sounds"));
+			 				createdDirectory = true;
+			 			}
+
+			 			var symbolClassName = exporter.soundSymbolClassNames.get(id);
+			 			var typeId = exporter.soundTypes.get(id);
+
+			 			Log.info("", " - \x1b[1mExporting sound:\x1b[0m [id=" + id + ", type=" + typeId + ", symbolClassName=" + symbolClassName + "]");
+
+			 			var type;
+			 			switch (typeId)
+			 			{
+			 				case SoundType.MP3:
+			 					type = "mp3";
+			 				case SoundType.ADPCM:
+			 					type = "adpcm";
+			 				case _:
+			 					throw "unsupported sound type " + id + ", type " + typeId + ", symbol class name " + symbolClassName;
+			 			};
+			 			var path = "sounds/" + symbolClassName + "." + type;
+			 			var assetData = exporter.sounds.get(id);
+
+			 			File.saveBytes(Path.combine(targetPath, path), assetData);
+
+						
+			 			// NOTICE: everything must be .mp3 in its final form, even though we write out various formats to disk
+			 			var soundAsset = new Asset("", "sounds/" + symbolClassName + ".mp3", AssetType.SOUND);
+			 			project.assets.push(soundAsset);
+					}*/
+		}
+	}
 	private function addSound(tag:IDefinitionTag):Void
 	{
 		if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, TagDefineSound))
 		{
+			var symbol:Dynamic = {};
+			symbol.type = SWFSymbolType.SOUND;
+			symbol.id = tag.characterId;
+			/*symbol.path = "symbols/" + symbol.id + "." + "mp3";
+
+			*/
+Log.info("Sound exists "+tag.characterId);
+			
 			var defineSound:TagDefineSound = cast tag;
 
 			var byteArray = defineSound.soundData;
@@ -1073,49 +1174,53 @@ class AnimateLibraryExporter
 
 			// TODO
 
-			// 			var entry:Entry = {
-			// 				fileName: symbol.path,
-			// 				fileSize: byteArray.length,
-			// 				fileTime: Date.now(),
-			// 				compressed: false,
-			// 				dataSize: 0,
-			// 				data: byteArray,
-			// 				crc32: Crc32.make(byteArray)
-			// 			};
-			// 			outputList.add(entry);
+			 			var entry:Entry = {
+			 				fileName: symbol.path,
+			 				fileSize: byteArray.length,
+			 				fileTime: Date.now(),
+			 				compressed: false,
+			 				dataSize: 0,
+			 				data: byteArray,
+			 				crc32: Crc32.make(byteArray)
+			 			};
+			 			outputList.add(entry);
 
-			// createdDirectory = false;
-			// 		for (id in exporter.sounds.keys())
-			// 		{
-			// 			if (!createdDirectory)
-			// 			{
-			// 				System.mkdir(Path.combine(targetPath, "sounds"));
-			// 				createdDirectory = true;
-			// 			}
+				
+			
+			  //var createdDirectory = false;
+			 	/*	for (id in exporter.sounds.keys())
+			 		{
+			 			if (!createdDirectory)
+			 			{
+			 				System.mkdir(Path.combine(targetPath, "sounds"));
+			 				createdDirectory = true;
+			 			}
 
-			// 			var symbolClassName = exporter.soundSymbolClassNames.get(id);
-			// 			var typeId = exporter.soundTypes.get(id);
+			 			var symbolClassName = exporter.soundSymbolClassNames.get(id);
+			 			var typeId = exporter.soundTypes.get(id);
 
-			// 			Log.info("", " - \x1b[1mExporting sound:\x1b[0m [id=" + id + ", type=" + typeId + ", symbolClassName=" + symbolClassName + "]");
+			 			Log.info("", " - \x1b[1mExporting sound:\x1b[0m [id=" + id + ", type=" + typeId + ", symbolClassName=" + symbolClassName + "]");
 
-			// 			var type;
-			// 			switch (typeId)
-			// 			{
-			// 				case SoundType.MP3:
-			// 					type = "mp3";
-			// 				case SoundType.ADPCM:
-			// 					type = "adpcm";
-			// 				case _:
-			// 					throw "unsupported sound type " + id + ", type " + typeId + ", symbol class name " + symbolClassName;
-			// 			};
-			// 			var path = "sounds/" + symbolClassName + "." + type;
-			// 			var assetData = exporter.sounds.get(id);
+			 			var type;
+			 			switch (typeId)
+			 			{
+			 				case SoundType.MP3:
+			 					type = "mp3";
+			 				case SoundType.ADPCM:
+			 					type = "adpcm";
+			 				case _:
+			 					throw "unsupported sound type " + id + ", type " + typeId + ", symbol class name " + symbolClassName;
+			 			};
+			 			var path = "sounds/" + symbolClassName + "." + type;
+			 			var assetData = exporter.sounds.get(id);
 
-			// 			File.saveBytes(Path.combine(targetPath, path), assetData);
+			 			File.saveBytes(Path.combine(targetPath, path), assetData);
 
-			// 			// NOTICE: everything must be .mp3 in its final form, even though we write out various formats to disk
-			// 			var soundAsset = new Asset("", "sounds/" + symbolClassName + ".mp3", AssetType.SOUND);
-			// 			project.assets.push(soundAsset);
+						
+			 			// NOTICE: everything must be .mp3 in its final form, even though we write out various formats to disk
+			 			var soundAsset = new Asset("", "sounds/" + symbolClassName + ".mp3", AssetType.SOUND);
+			 			project.assets.push(soundAsset);
+					}*/
 		}
 
 		return;
@@ -1322,16 +1427,22 @@ class AnimateLibraryExporter
 	{
 		if (tag == null) return null;
 
+		//Log.info("tag.characterId  " + tag.characterId );
+		//Log.info("type "+$type(tag));
 		if (!libraryData.symbols.exists(tag.characterId))
 		{
 			if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, TagDefineSprite))
 			{
+				
+		//Log.info("tag.characterId Sprite "+tag.characterId );
 				return addSprite(cast tag);
 			}
 			else if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, TagDefineBits)
 				|| #if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, TagDefineBitsJPEG2)
 				|| #if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, TagDefineBitsLossless))
 			{
+				
+		//Log.info("tag.characterId Bitmap "+tag.characterId );
 				return addBitmap(tag);
 			}
 			else if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, TagDefineButton)
@@ -1358,6 +1469,8 @@ class AnimateLibraryExporter
 			}
 			else if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, TagDefineSound))
 			{
+				
+		Log.info("tag.characterId Sound "+tag.characterId );
 				addSound(tag);
 			}
 
@@ -1534,6 +1647,7 @@ private #if (haxe_ver >= 4.0) enum #end abstract SWFSymbolType(Int) from Int to 
 	public var SHAPE = 4;
 	public var SPRITE = 5;
 	public var STATIC_TEXT = 6;
+	public var SOUND = 7;
 }
 
 #if (haxe_ver < 4.0) @:enum #end

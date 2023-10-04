@@ -4,6 +4,7 @@ import haxe.Json;
 import lime.graphics.Image;
 import lime.graphics.ImageChannel;
 import lime.math.Vector2;
+import swf.exporters.animate.AnimateAudioSymbol;
 import swf.exporters.core.FilterType;
 import openfl.display.MovieClip;
 import openfl.events.Event;
@@ -19,6 +20,7 @@ import openfl.utils.AssetType;
 import openfl.utils.Future;
 import openfl.utils.Promise;
 #if lime
+import lime.media.AudioBuffer;
 import lime.utils.AssetBundle;
 import lime.utils.AssetManifest;
 import lime.utils.AssetLibrary as LimeAssetLibrary;
@@ -26,6 +28,7 @@ import lime.utils.Bytes;
 #else
 import openfl.utils.AssetManifest;
 #end
+import swf.timeline.SoundStream;
 // Extra imports to include at runtime
 import openfl.filters.ColorMatrixFilter;
 import openfl.filters.ConvolutionFilter;
@@ -284,6 +287,8 @@ import openfl.filters.GlowFilter;
 						symbol = __parseFont(data);
 					case SHAPE:
 						symbol = __parseShape(data);
+					case SOUND:
+						symbol = __parseSound(data);
 					case SPRITE:
 						spriteSymbol = __parseSprite(data);
 						if (i == rootIndex) root = spriteSymbol;
@@ -323,7 +328,7 @@ import openfl.filters.GlowFilter;
 
 			for (id in types.keys())
 			{
-				if (types.get(id) == IMAGE)
+				if (types.get(id) == IMAGE || types.get(id) == SOUND)
 				{
 					preload.set(id, true);
 				}
@@ -524,6 +529,37 @@ import openfl.filters.GlowFilter;
 	}
 	#end
 
+	
+	#if lime
+	public override function loadAudioBuffer(id:String):Future<AudioBuffer>
+	{
+		if (cachedAudioBuffers.exists(id))
+		{
+			return Future.withValue(cachedAudioBuffers.get(id));
+		}
+		else if (classTypes.exists(id))
+		{
+			return Future.withValue(AudioBuffer.fromBytes(cast(Type.createInstance(classTypes.get(id), []), Bytes)));
+		}
+		else
+		{
+			if (pathGroups.exists(id))
+			{
+				return AudioBuffer.loadFromFiles(pathGroups.get(id));
+			}
+			else if (cachedBytes.exists(id))
+			{
+				return AnimateAudioBuffer.loadFromBytes(cachedBytes.get(id), id);
+			}
+			else
+			{
+				return AudioBuffer.loadFromFile(paths.get(id));
+			}
+		}
+	}
+	#end
+
+	
 	private function __parseBitmap(data:Dynamic):AnimateBitmapSymbol
 	{
 		var symbol = new AnimateBitmapSymbol();
@@ -535,6 +571,15 @@ import openfl.filters.GlowFilter;
 		return symbol;
 	}
 
+	private function __parseSound(data:Dynamic):AnimateSoundSymbol
+	{
+		var symbol = new AnimateSoundSymbol();
+		symbol.id = data.id;
+		symbol.className = data.className;
+		symbol.path = data.path;
+		return symbol;
+	}
+	
 	private function __parseButton(data:Dynamic):AnimateButtonSymbol
 	{
 		var symbol = new AnimateButtonSymbol();
@@ -738,6 +783,16 @@ import openfl.filters.GlowFilter;
 		symbol.id = data.id;
 		symbol.className = data.className;
 		symbol.baseClassName = data.baseClassName;
+		if (Reflect.hasField(data, "scenes")){
+			symbol.scenes = data.scenes;
+		}
+		if (Reflect.hasField(data, "soundStream")){
+			symbol.hasSoundStream = true;
+			symbol.soundStream = data.soundStream;
+		}
+	/*	if (Reflect.hasField(data, "soundStream")){
+			symbol.soundStream = data.soundStream;
+		}*/
 		symbol.scale9Grid = data.scale9Grid != null ? new Rectangle(__pixel(data.scale9Grid[0]), __pixel(data.scale9Grid[1]), __pixel(data.scale9Grid[2]),
 			__pixel(data.scale9Grid[3])) : null;
 		var frames:Array<Dynamic> = data.frames;
@@ -829,4 +884,5 @@ import openfl.filters.GlowFilter;
 	public var SHAPE = 4;
 	public var SPRITE = 5;
 	public var STATIC_TEXT = 6;
+	public var SOUND = 7;
 }

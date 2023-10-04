@@ -159,21 +159,21 @@ class FrameScriptParser
 										case OCallPropVoid(nameIndex, argCount):
 											var temp = AVM2.parseFunctionCall(swfData.abcData, cls, nameIndex, argCount, stack);
 
-											var callpropvoid:String = "";
+											var callpropVoid:String = "";
 
 											if (stack.length > 0)
 											{
-												callpropvoid += stack.pop() + ".";
+												callpropVoid += stack.pop() + ".";
 											}
 											else
 											{
-												if (!temp.startsWith("this.")) callpropvoid += "this" + ".";
+												if (!temp.startsWith("this.")) callpropVoid += "this" + ".";
 											}
 
-											callpropvoid += temp;
-											callpropvoid += ";";
+											callpropVoid += temp;
+											callpropVoid += ";";
 
-											js += ind() + callpropvoid;
+											js += ind() + callpropVoid;
 										// prop = null;
 										case OCallProperty(nameIndex, argCount):
 											// Log.info("", "OCallProperty stack: " + stack);

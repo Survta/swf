@@ -4,6 +4,8 @@ import openfl.utils.ByteArray;
 
 class SoundStream
 {
+	public var id:Int;
+	public var tagId:Int;
 	public var startFrame:Int;
 	public var numFrames:Int;
 	public var numSamples:Int;
@@ -11,6 +13,7 @@ class SoundStream
 	public var rate:Int;
 	public var size:Int;
 	public var type:Int;
+	public var path:String;
 	public var data(default, null):ByteArray;
 
 	public function new()
@@ -21,7 +24,7 @@ class SoundStream
 
 	public function toString():String
 	{
-		return "[SoundStream] " + "StartFrame: " + startFrame + ", " + "Frames: " + numFrames + ", " + "Samples: " + numSamples + ", " + "Bytes: "
+		return "[SoundStream] " + "id:"+id +"tagId "+ tagId +" StartFrame: " + startFrame + ", " + "Frames: " + numFrames + ", " + "Samples: " + numSamples + ", " + "Bytes: "
 			+ data.length;
 	}
 }

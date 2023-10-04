@@ -49,6 +49,8 @@ import swf.timeline.Scene;
 import swf.timeline.SoundStream;
 import swf.utils.StringUtils;
 import swf.SWF;
+
+import hxp.Log;
 import openfl.errors.Error;
 import openfl.display.Sprite;
 import openfl.events.Event;
@@ -59,6 +61,7 @@ import openfl.utils.Endian;
 class SWFTimelineContainer extends SWFEventDispatcher
 {
 	// We're just being lazy here.
+	public static var SOUNDS:Int = 1000000 ;
 	public static var TIMEOUT:Int = 50;
 	public static var AUTOBUILD_LAYERS:Bool = false;
 	public static var EXTRACT_SOUND_STREAM:Bool = true;
@@ -285,7 +288,11 @@ class SWFTimelineContainer extends SWFEventDispatcher
 			// TODO: This needs to go into processTags()
 			buildLayers();
 		}
-		// trace(":: Container parseTagsFinalize");
+		if (soundStream != null && soundStream.data.length > 0){
+			soundStream.id = SOUNDS++;
+			soundStream.path = "symbols/" + soundStream.id + "." + "mp3";
+		 Log.info(SOUNDS + " :: Container parseTagsFinalize "+soundStream.toString());
+		}
 	}
 
 	public function publishTags(data:SWFData, version:Int):Void
@@ -384,6 +391,7 @@ class SWFTimelineContainer extends SWFEventDispatcher
 			case TagSoundStreamHead.TYPE, TagSoundStreamHead2.TYPE, TagSoundStreamBlock.TYPE:
 				if (EXTRACT_SOUND_STREAM)
 				{
+					//Log.info("EXTRACT_SOUND_STREAM");
 					processSoundStreamTag(tag, currentTagIndex);
 				}
 			// Background color
@@ -509,6 +517,7 @@ class SWFTimelineContainer extends SWFEventDispatcher
 		{
 			case TagSoundStreamHead.TYPE, TagSoundStreamHead2.TYPE:
 				var tagSoundStreamHead:TagSoundStreamHead = cast tag;
+				Log.info("Head ");
 				soundStream = new SoundStream();
 				soundStream.compression = tagSoundStreamHead.streamSoundCompression;
 				soundStream.rate = tagSoundStreamHead.streamSoundRate;
@@ -519,10 +528,12 @@ class SWFTimelineContainer extends SWFEventDispatcher
 			case TagSoundStreamBlock.TYPE:
 				if (soundStream != null)
 				{
+					//Log.info("Block 1 ");
 					if (!hasSoundStream)
 					{
 						hasSoundStream = true;
 						soundStream.startFrame = currentFrame.frameNumber;
+						//Log.info("Block 2 ");
 					}
 					var tagSoundStreamBlock:TagSoundStreamBlock = cast tag;
 					var soundData:ByteArray = tagSoundStreamBlock.soundData;
@@ -535,12 +546,14 @@ class SWFTimelineContainer extends SWFEventDispatcher
 						case SoundCompression.MP3: // MP3
 							var numSamples:Int = soundData.readUnsignedShort();
 							var seekSamples:Int = soundData.readShort();
+							//Log.info("Block 3 ");
 							if (numSamples > 0)
 							{
 								soundStream.numSamples += numSamples;
 								soundStream.data.writeBytes(soundData, 4);
 							}
 					}
+					//Log.info("Block 4 "+ soundStream.numFrames);
 					soundStream.numFrames++;
 				}
 		}

@@ -94,7 +94,7 @@ class AnimateButtonSymbol extends AnimateSymbol
 		this.library = library;
 	}
 
-	private override function __initObject(library:AnimateLibrary, instance:DisplayObject):Void
+	private override function __initObject(library:AnimateLibrary, instance:Dynamic):Void
 	{
 		this.library = library;
 		__constructor(cast instance);
