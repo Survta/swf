@@ -76,6 +76,10 @@ class AnimateLibraryExporter
 		this.swfData = swfData;
 		this.targetPath = targetPath;
 
+	
+		
+		Log.info('AnimateLibraryExporter '+targetPath);
+		
 		symbols = [];
 		soundSymbols = [];
 		symbolsByTagID = new Map();
@@ -103,16 +107,29 @@ class AnimateLibraryExporter
 		manifestData.version = 3;
 		manifestData.assets = [];
 
+			var regex = ~/\/libraries\/([^\/]+)\.zip/; // This regular expression matches the desired part.
+			var match = "";
+        if (regex.match(targetPath)) {
+            match = regex.matched(1); // Extract the first capturing group.
+			Log.info('AnimateLibraryExporter match '+match);
+            libraryData.name = match;
+        } else {
+            trace("No match found.");
+        }
+		
 		libraryData.uuid = uuid;
 		libraryData.frameRate = swfData.frameRate;
 		addSprite(swfData, true);
 		//addSound2(swfData);
+		var n = 0;
+		//Log.info("symbols "+symbols.length);
 		for (symbol in symbols)
 		{
+		//	//Log.info("symbol "+n++);
 			processSymbol(symbol);
 		}
 		//symbols.push(soundSymbols);
-Log.info("processSymbol end");
+//Log.info("processSymbol end");
 		var libraryJSON = libraryData.serialize();
 		var bytes = new ByteArray();
 		bytes.writeUTFBytes(libraryJSON);
@@ -120,6 +137,19 @@ Log.info("processSymbol end");
 		var fileSize = bytes.length;
 		bytes.deflate();
 
+		for (output in outputList) 
+		{
+			if (output!=null){
+				//Log.info("ol " + output.fileName);
+				////Log.info("type 1" +Type.typeof(output));
+				////Log.info("type 2" +Type.typeof(output.fileName));
+				if (output.fileName != null){
+					//Log.info("ol l "+output.fileName.length);
+				}
+			}
+			
+		}
+		//Log.info("outputList end 1");
 		var entry:Entry = {
 			fileName: "data.json",
 			fileSize: fileSize,
@@ -129,6 +159,16 @@ Log.info("processSymbol end");
 			data: bytes,
 			crc32: crc32
 		};
+		
+		
+			if (entry!=null){
+				//Log.info("ol " + entry.fileName);
+				if (entry.fileName == null){
+					//Log.info("ol l "+entry.fileName.length);
+				}
+			}
+			
+		//Log.info("outputList end 2");
 		outputList.add(entry);
 		manifestData.assets.push({
 			path: "data.json",
@@ -152,6 +192,14 @@ Log.info("processSymbol end");
 			data: bytes,
 			crc32: crc32
 		};
+			if (entry!=null){
+				//Log.info("ol " + entry.fileName);
+				if (entry.fileName == null){
+					//Log.info("ol l "+entry.fileName.length);
+				}
+			}
+			//Log.info("outputList end 3");
+		
 		outputList.add(entry);
 
 		// TODO: Generated class names
@@ -177,9 +225,11 @@ Log.info("processSymbol end");
 		// 			crc32: Crc32.make(bytes)
 		// 		};
 		// 		outputList.add(entry);
-
+//Log.info(targetPath);
 		var outputFile = File.write(targetPath, true);
 		var writer = new ZipWriter(outputFile);
+		
+		
 		writer.write(outputList);
 	}
 
@@ -428,6 +478,7 @@ Log.info("processSymbol end");
 			symbol.id = tag.characterId;
 			symbol.path = "symbols/" + symbol.id + "." + (type == PNG ? "png" : "jpg");
 
+			//Log.info("BitmapType "+symbol.path);
 			var entry:Entry = {
 				fileName: symbol.path,
 				fileSize: byteArray.length,
@@ -444,10 +495,11 @@ Log.info("processSymbol end");
 				type: AssetType.IMAGE
 			});
 
+			
 			if (type == JPEG_ALPHA)
 			{
 				symbol.alpha = "symbols/" + symbol.id + "a.png";
-
+//Log.info("Alpha "+symbol.alpha);
 				var entry:Entry = {
 					fileName: symbol.alpha,
 					fileSize: alphaByteArray.length,
@@ -812,9 +864,7 @@ Log.info("processSymbol end");
 			symbol.soundStream = tag.soundStream;
 			addSound2(tag.soundStream);
 		}
-		if (tag.soundStream != null){
-			Log.info("tag.soundStream != null ");
-		}
+		
 		
 		var scalingGrid = swfData.getScalingGrid(symbol.id);
 		if (scalingGrid != null && scalingGrid.splitter != null)
@@ -1084,12 +1134,10 @@ Log.info("processSymbol end");
 			symbol.path = "symbols/" + tag.id + "." + "mp3";
 
 			
-			Log.info("Sound exists "+tag.id);
-			
-			
+						
 
 			// TODO
-
+//Log.info("addSound2 "+symbol.path);
 			 			var entry:Entry = {
 			 				fileName: symbol.path,
 			 				fileSize: tag.data.length,
@@ -1120,7 +1168,7 @@ Log.info("processSymbol end");
 			 			var symbolClassName = exporter.soundSymbolClassNames.get(id);
 			 			var typeId = exporter.soundTypes.get(id);
 
-			 			Log.info("", " - \x1b[1mExporting sound:\x1b[0m [id=" + id + ", type=" + typeId + ", symbolClassName=" + symbolClassName + "]");
+			 			//Log.info("", " - \x1b[1mExporting sound:\x1b[0m [id=" + id + ", type=" + typeId + ", symbolClassName=" + symbolClassName + "]");
 
 			 			var type;
 			 			switch (typeId)
@@ -1154,7 +1202,7 @@ Log.info("processSymbol end");
 			/*symbol.path = "symbols/" + symbol.id + "." + "mp3";
 
 			*/
-Log.info("Sound exists "+tag.characterId);
+////Log.info("Sound exists "+tag.characterId);
 			
 			var defineSound:TagDefineSound = cast tag;
 
@@ -1173,7 +1221,7 @@ Log.info("Sound exists "+tag.characterId);
 			}
 
 			// TODO
-
+////Log.info("Sound "+symbol.path);
 			 			var entry:Entry = {
 			 				fileName: symbol.path,
 			 				fileSize: byteArray.length,
@@ -1199,7 +1247,7 @@ Log.info("Sound exists "+tag.characterId);
 			 			var symbolClassName = exporter.soundSymbolClassNames.get(id);
 			 			var typeId = exporter.soundTypes.get(id);
 
-			 			Log.info("", " - \x1b[1mExporting sound:\x1b[0m [id=" + id + ", type=" + typeId + ", symbolClassName=" + symbolClassName + "]");
+			 			////Log.info("", " - \x1b[1mExporting sound:\x1b[0m [id=" + id + ", type=" + typeId + ", symbolClassName=" + symbolClassName + "]");
 
 			 			var type;
 			 			switch (typeId)
@@ -1228,6 +1276,7 @@ Log.info("Sound exists "+tag.characterId);
 
 	public function generateClasses(targetPath:String, output:Array<Asset>, prefix:String = ""):Array<String>
 	{
+			
 		#if commonjs
 		var bitmapDataTemplate = File.getContent(Path.combine(js.Node.__dirname, "../templates/animate/BitmapData.mtt"));
 		var movieClipTemplate = File.getContent(Path.combine(js.Node.__dirname, "../templates/animate/MovieClip.mtt"));
@@ -1415,10 +1464,18 @@ Log.info("Sound exists "+tag.characterId);
 		{
 			data2 = libraryData.root;
 		}
-
+		
+		////Log.info(symbol.name);
+		////Log.info(Std.string(data2 != null));
+		if (data2 != null){
+			////Log.info(FrameScriptParser.getBaseClassName(swfData, symbol.name));
+		}
 		if (data2 != null && symbol.name != null)
 		{
-			data2.className = symbol.name;
+			Log.info("className");
+			Log.info( symbol.name);
+			data2.className = libraryData.name+"." + symbol.name.split("-").join("_").split(".").join("_");
+			Log.info( data2.className);
 			data2.baseClassName = FrameScriptParser.getBaseClassName(swfData, symbol.name);
 		}
 	}
@@ -1427,14 +1484,14 @@ Log.info("Sound exists "+tag.characterId);
 	{
 		if (tag == null) return null;
 
-		//Log.info("tag.characterId  " + tag.characterId );
-		//Log.info("type "+$type(tag));
+		////Log.info("tag.characterId  " + tag.characterId );
+		////Log.info("type "+$type(tag));
 		if (!libraryData.symbols.exists(tag.characterId))
 		{
 			if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, TagDefineSprite))
 			{
 				
-		//Log.info("tag.characterId Sprite "+tag.characterId );
+		////Log.info("tag.characterId Sprite "+tag.characterId );
 				return addSprite(cast tag);
 			}
 			else if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, TagDefineBits)
@@ -1442,7 +1499,7 @@ Log.info("Sound exists "+tag.characterId);
 				|| #if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, TagDefineBitsLossless))
 			{
 				
-		//Log.info("tag.characterId Bitmap "+tag.characterId );
+		////Log.info("tag.characterId Bitmap "+tag.characterId );
 				return addBitmap(tag);
 			}
 			else if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, TagDefineButton)
@@ -1470,8 +1527,8 @@ Log.info("Sound exists "+tag.characterId);
 			else if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, TagDefineSound))
 			{
 				
-		Log.info("tag.characterId Sound "+tag.characterId );
-				addSound(tag);
+		////Log.info("tag.characterId Sound "+tag.characterId );
+				//addSound(tag);
 			}
 
 			return null;
@@ -1580,6 +1637,7 @@ private class SWFDocument
 {
 	public var frameRate:Float;
 	public var uuid:String;
+	public var name:String = "";
 	public var root:Dynamic;
 	public var symbols:Map<Int, Dynamic>;
 
@@ -1596,6 +1654,7 @@ private class SWFDocument
 		output.frameRate = frameRate;
 		output.uuid = uuid;
 		output.root = 0;
+		//output.name = name;
 		output.version = 0.1;
 
 		var symbolArray = new Array<Dynamic>();

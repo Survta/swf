@@ -1,5 +1,6 @@
 package swf.exporters.animate;
 
+import com.sunwork.LifeSlideMovieClip;
 import haxe.Json;
 import lime.graphics.Image;
 import lime.graphics.ImageChannel;
@@ -211,6 +212,41 @@ import openfl.filters.GlowFilter;
 	#end
 
 	#if lime
+	public function getMovieClipType(id:String, type:String):Dynamic
+	{
+		if (symbols == null) return null;
+		
+		if (id == "")
+		{
+			if (type != null){
+					root.className = type;
+			}
+			return cast root.__createObject(this);
+		}
+		else
+		{
+			var symbol = symbolsByClassName.get(id);
+			if (symbol != null)
+			{
+				
+				if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (symbol, AnimateSpriteSymbol))
+				{
+					var sprite = cast(symbol, AnimateSpriteSymbol).__createObject(this);
+					if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (sprite, MovieClip))
+					{
+						// May return a Sprite if there is a custom base class defined that uses
+						// Sprite instead of MovieClip. In that case, access through new()
+						return cast sprite;
+					}
+				}
+			}
+		}
+
+		return null;
+	}
+	#end
+	
+	#if lime
 	public override function isLocal(id:String, type:String):Bool
 	{
 		return true;
@@ -299,10 +335,13 @@ import openfl.filters.GlowFilter;
 				}
 
 				if (symbol == null) continue;
+				
+				if (symbol.id == 65){
+					trace('65' );
+				}
 				symbols.set(symbol.id, symbol);
 				if (symbol.className != null)
 				{
-					symbolsByClassName.set(symbol.className, symbol);
 					#if (openfl > "9.1.0")
 					Assets.registerBinding(symbol.className, this);
 					#end

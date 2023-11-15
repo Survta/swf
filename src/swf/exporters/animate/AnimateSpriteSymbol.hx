@@ -4,6 +4,7 @@ import swf.timeline.SoundStream;
 import swf.utils.SymbolUtils;
 import openfl.display.DisplayObject;
 import openfl.display.MovieClip;
+//import com.sunwork.LifeSlideMovieClip;
 import openfl.display.Scene;
 import openfl.display.Sprite;
 import openfl.geom.Rectangle;
@@ -38,6 +39,7 @@ class AnimateSpriteSymbol extends AnimateSymbol
 	private function __constructor(sprite:Sprite):Void
 	{
 		var timeline = new AnimateTimeline(library, this);
+		//if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (sprite, LifeSlideMovieClip))
 		if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (sprite, MovieClip))
 		{
 			var movieClip:MovieClip = cast sprite;
@@ -93,7 +95,7 @@ class AnimateSpriteSymbol extends AnimateSymbol
 			symbolType = Type.resolveClass(SymbolUtils.formatClassName(baseClassName));
 
 			if (symbolType == null)
-			{
+			{				
 				// Log.warn ("Could not resolve class \"" + className + "\"");
 			}
 		}

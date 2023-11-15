@@ -10,6 +10,7 @@ import openfl.display.Shape;
 import openfl.display.Sprite;
 import openfl.display.Timeline;
 import openfl.events.Event;
+import openfl.geom.Matrix;
 import openfl.utils.Function;
 import swf.exporters.animate.AnimateSymbol;
 // import openfl.events.Event;
@@ -62,6 +63,7 @@ class AnimateTimeline extends Timeline
 	@:noCompletion private var __symbol:AnimateSpriteSymbol;
 	@:noCompletion private var __soundStream:SoundStream;
 	@:noCompletion private var __sound:Sound;
+	@:noCompletion public static  var __soundChannels:Map<Int, SoundChannel> = [];
 	@:noCompletion private var __soundChannel:SoundChannel;
 	@:noCompletion private var __soundPosition:Float;
 	
@@ -74,12 +76,14 @@ class AnimateTimeline extends Timeline
 		__library = library;
 		__symbol = symbol;
 		
+		
 		if (__symbol.hasSoundStream){
+			AnimateTimeline.__soundChannels.set(__symbol.soundStream.id,__soundChannel);
 			__soundStream = __symbol.soundStream;
 			__sound = Sound.fromAudioBuffer(library.getAudioBuffer(__symbol.soundStream.path));
 			
 		}
-		frameRate = library.frameRate;
+		frameRate = library.frameRate ?? 30;
 		var labels = [];
 		scripts = [];
 
@@ -189,6 +193,29 @@ class AnimateTimeline extends Timeline
 	
 		
 	}
+	
+	
+	public function stopSounds():Void
+	{
+		//return;
+		for (sch in AnimateTimeline.__soundChannels.keys()) 
+		{
+			//var test  = AnimateTimeline.__soundChannels;
+			if (AnimateTimeline.__soundChannels.exists(sch) && AnimateTimeline.__soundChannels.get(sch) !=null&& sch != __soundStream.id){
+				
+				AnimateTimeline.__soundChannels.get(sch).stop();
+				/*__soundChannels.set(sch, null);
+				__soundChannels.remove(sch);*/
+			}
+			
+		}
+		/*if (__symbol.hasSoundStream && __soundChannel !=null){
+			__soundChannel.stop();
+			__soundPosition = null;
+			__soundChannel.removeEventListener(Event.SOUND_COMPLETE, __onSoundComplete );
+		}*/
+	}
+	
 
 	private function changeSymbol():Void
 	{
@@ -201,6 +228,9 @@ class AnimateTimeline extends Timeline
 
 	public override function __play():Void
 	{
+		trace("Call __play __currentScene "+__currentScene);
+		
+		
 		if (__isPlaying || __totalFrames < 2) return;
 
 		__isPlaying = true;
@@ -209,69 +239,186 @@ class AnimateTimeline extends Timeline
 		{
 			__frameTime = Std.int(1000 / frameRate);
 			__timeElapsed = 0;
+			trace("fr rate "+__frameTime);
 		}
-		if (__symbol.hasSoundStream && __soundPosition!=null&&__soundPosition!=0){
+		if (__symbol.hasSoundStream && __soundPosition != null && __soundPosition != 0){
+			stopSounds();
 			__soundChannel = __sound.play();
 			__soundChannel.position = __soundPosition;
 			__soundPosition = null;
 			__soundChannel.addEventListener(Event.SOUND_COMPLETE, __onSoundComplete );
 		}
+		//cast(__scope.getChildAt(0), MovieClip).dispatchEvent (new Event("documentPlaybackStateChange"));
+	}
+	
+	
+	private function __getSoundPosition(frame:#if (haxe_ver >= "3.4.2") Any #else Dynamic #end,):Null<Float>
+	{
+		if (__symbol.hasSoundStream){
+			var frameResolved = __resolveFrameReference(frame);
+			if (frameResolved < __soundStream.startFrame || frameResolved>=__soundStream.numFrames){
+				return null;
+			}else{
+				
+			var elapsed = (frameResolved - __soundStream.startFrame)/frameRate*1000;
+			return elapsed;
+			
+			}
+			
+		} else {
+			
+		return null;
+		
+		}
+		
+	return null;
 	}
 	
 	public override function __gotoAndPlay(frame:#if (haxe_ver >= "3.4.2") Any #else Dynamic #end, scene:String = null):Void
 	{
-		__soundPosition = null;
-		__play();
-		__goto(__resolveFrameReference(frame));
+		trace("Call __gotoAndPlay __currentScene "+__currentScene+" nextScene "+scene);
+		
+		
+		//__stop();
+			__play();
+		if (!((scene == null || scene == __currentScene.name) && (__resolveFrameReference(frame) == __currentFrame && __soundPosition!=null && __soundPosition!=0))){
+				
+				__soundPosition = __getSoundPosition(frame);
+		}
+			
+	/*	var currentMovieclip:MovieClip = cast(__scope.getChildAt(0), MovieClip);
+		currentMovieclip.stop();*/
+		if (scene != null){
+			for (sc in scenes){
+				if (sc.name == scene){				
+					__currentScene = sc;	
+					
+					__goto(__resolveFrameReference(__currentScene.frameNumber + 1));
+				//	__goto(__resolveFrameReference(frame));
+				//	__play();
+				
+				break;
+				}
+			}
+			}else{
+				
+				__goto(__resolveFrameReference(frame));
+			
+				
+			}
+		//cast(__scope.getChildAt(0), MovieClip).dispatchEvent (new Event("documentPlaybackStateChange"));
 	}
 
 	public override function __gotoAndStop(frame:#if (haxe_ver >= "3.4.2") Any #else Dynamic #end, scene:String = null):Void
 	{
+		trace("Call __gotoAndStop __currentScene "+__currentScene+" nextScene "+scene);
 		__stop();
-		__goto(__resolveFrameReference(frame));
+	if (!((scene == null || scene == __currentScene.name) && (__resolveFrameReference(frame) == __currentFrame && __soundPosition!=null && __soundPosition!=0))){
+			
+			__soundPosition = __getSoundPosition(frame);
+		}
+		
+		
+		/*var currentMovieclip:MovieClip = cast(__scope.getChildAt(0), MovieClip);
+		currentMovieclip.stop();*/
+		if (scene != null){
+			for (sc in scenes){
+			if (sc.name == scene){				
+				__currentScene = sc;				
+				__goto(__resolveFrameReference(__currentScene.frameNumber + 1));	
+				//__goto(__resolveFrameReference(frame));	
+			//	__stop();
+			break;
+			}
+		}
+		}else{			
+			__goto(__resolveFrameReference(frame));
+			//__stop();
+			
+		}
+		//cast(__scope.getChildAt(0), MovieClip).dispatchEvent (new Event("documentPlaybackStateChange"));
+		
 	}
 
+	
 	public override function __nextScene():Void
 	{
+		trace("Call __nextScene __currentScene "+__currentScene);
 		__stop();
 		__soundPosition = null;
-		var currentMovieclip:MovieClip = cast(__scope.getChildAt(0), MovieClip);
-		currentMovieclip.stop();
+		/*var currentMovieclip:MovieClip = cast(__scope.getChildAt(0), MovieClip);
+		currentMovieclip.stop();*/
 		
-		if (scenes.indexOf(__currentScene) + 1 < scenes.length){
+		if (scenes.indexOf(__currentScene) + 1 <= scenes.length){
 			__currentScene = scenes[scenes.indexOf(__currentScene) + 1];	
 		
-			__goto(__resolveFrameReference(__currentScene.frameNumber));
+			__goto(__resolveFrameReference(__currentScene.frameNumber+1));
+			__play();
 		}
+		//cast(__scope.getChildAt(0), MovieClip).dispatchEvent (new Event("documentPlaybackStateChange"));
 	}
 		
 	public override function __prevScene():Void
 	{
+		trace("Call __prevScene __currentScene "+__currentScene);
 		__stop();
 		__soundPosition = null;
-		var currentMovieclip:MovieClip = cast(__scope.getChildAt(0), MovieClip);
-		currentMovieclip.stop();
+		//var currentMovieclip:MovieClip = cast(__scope.getChildAt(0), MovieClip);
+		//currentMovieclip.stop();
 		
-		if (scenes.indexOf(__currentScene) - 1 > 0){
+		if (scenes.indexOf(__currentScene) - 1 >= 0){
 			__currentScene = scenes[scenes.indexOf(__currentScene) - 1];	
 		
-			__goto(__resolveFrameReference(__currentScene.frameNumber));
+			__goto(__resolveFrameReference(__currentScene.frameNumber + 1));
+			__play();
 		}
+		//cast(__scope.getChildAt(0), MovieClip).dispatchEvent (new Event("documentPlaybackStateChange"));
 		
 	}
 	
 	public override function __stop():Void
 	{
+		trace("Call __stop __currentScene "+__currentScene);		
+		
 		__isPlaying = false;
 		
-		if (__soundChannel!=null&&__soundChannel.hasEventListener(Event.SOUND_COMPLETE)){
-			__soundChannel.removeEventListener(Event.SOUND_COMPLETE, __onSoundComplete );
-			__soundPosition = __soundChannel.position;
+		if (__soundChannel != null){
+			if(__soundChannel.hasEventListener(Event.SOUND_COMPLETE))
+			__soundChannel.removeEventListener(Event.SOUND_COMPLETE, __onSoundComplete );	
+			if ( __soundChannel.position!=0){
+				__soundPosition = __soundChannel.position;
+			}
+			
 			__soundChannel.stop();
+			stopSounds();
+			
 
 		}
+		//cast(__scope.getChildAt(0), MovieClip).dispatchEvent (new Event("documentPlaybackStateChange"));
 		
 	}
+	override public function __nextFrame():Void
+	{
+		//__stop();
+		if (scenes.indexOf(__currentScene) + 1 <= scenes.length){
+			__currentScene = scenes[scenes.indexOf(__currentScene) + 1];			
+		}	
+		
+		__goto(__currentFrame + 1);
+	}
+
+
+	override public function __prevFrame():Void
+	{
+		//__stop();
+		if (scenes.indexOf(__currentScene) - 1 >= 0){
+			__currentScene = scenes[scenes.indexOf(__currentScene) - 1];	
+		}		
+		
+		__goto(__currentFrame - 1);
+		
+	}
+
 	
 	public override function enterFrame(currentFrame:Int):Void
 	{
@@ -286,6 +433,8 @@ class AnimateTimeline extends Timeline
 
 			if (__symbol.hasSoundStream){
 					if (currentFrame == __soundStream.startFrame){
+						stopSounds();
+						
 						__soundChannel = __sound.play();
 						__soundChannel.addEventListener(Event.SOUND_COMPLETE, __onSoundComplete );
 					}
@@ -321,6 +470,9 @@ class AnimateTimeline extends Timeline
 					frame = i + 1;
 					frameData = __symbol.frames[i];
 
+					if ( currentFrame==4 && __symbol.baseClassName !=null && __symbol.baseClassName!=""&& __symbol.className =="subject_11_4_1.LifeSlideClass_1_s20_psd"){
+			trace("MC");
+		}
 					if (frameData.objects == null) continue;
 
 					for (frameObject in frameData.objects)
@@ -433,7 +585,7 @@ class AnimateTimeline extends Timeline
 								if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (child, MovieClip))
 								{
 									var movie:MovieClip = cast child;
-									movie.gotoAndPlay(1);
+									movie.gotoAndStop(1);
 								}
 
 								__sprite.removeChild(child);
@@ -488,69 +640,83 @@ class AnimateTimeline extends Timeline
 //DO FOR every scenes pre or on the fly. beter pre
 		for (i in 0...scenes.length)
 		{
-			frame = i + 1;
-			frameData = __symbol.frames[i];
+			//frame = i + 1;
+			for (j in 0...__symbol.frames.length) 
+			{				
+			frame = j + 1;
+			frameData = __symbol.frames[j];
 
 			if (frameData.objects == null) continue;
 
-			for (frameObject in frameData.objects)
-			{
-				if (frameObject.type == AnimateFrameObjectType.CREATE)
+				for (frameObject in frameData.objects)
 				{
-					if (__activeInstancesByFrameObjectID.exists(frameObject.id))
+					if (frameObject.symbol == 121){
+								trace("HERE Symbol 121");
+							}
+							
+					if (frameObject.symbol == 130){
+								trace("HERE Symbol 130");
+							}
+					if (frameObject.type == AnimateFrameObjectType.CREATE)
 					{
-						continue;
-					}
-					else
-					{
-						instance = null;
-						duplicate = false;
-
-						for (activeInstance in __activeInstances)
+						if (__activeInstancesByFrameObjectID.exists(frameObject.id))
 						{
-							if (activeInstance.displayObject != null
-								&& activeInstance.characterID == frameObject.symbol
-								&& activeInstance.depth == frameObject.depth)
+							continue;
+						}
+						else
+						{
+							instance = null;
+							duplicate = false;
+
+							for (activeInstance in __activeInstances)
 							{
-								// TODO: Fix duplicates in exporter
-								instance = activeInstance;
-								duplicate = true;
-								break;
+								if (activeInstance.displayObject != null
+									&& activeInstance.characterID == frameObject.symbol
+									&& activeInstance.depth == frameObject.depth)
+								{
+									// TODO: Fix duplicates in exporter
+									instance = activeInstance;
+									duplicate = true;
+									break;
+								}
 							}
 						}
-					}
 
-					if (instance == null)
-					{
-						symbol = __library.symbols.get(frameObject.symbol);
-
-						if (symbol != null)
+						if (instance == null)
 						{
-							displayObject = symbol.__createObject(__library);
+							symbol = __library.symbols.get(frameObject.symbol);
 
-							if (displayObject != null)
+							if (symbol != null)
 							{
-								#if !flash
-								// displayObject.parent = __sprite;
-								// displayObject.stage = __sprite.stage;
+								displayObject = symbol.__createObject(__library);
 
-								// if (__sprite.stage != null) displayObject.dispatchEvent(new Event(Event.ADDED_TO_STAGE, false, false));
-								#end
+								if (displayObject != null)
+								{
+									#if !flash
+									// displayObject.parent = __sprite;
+									// displayObject.stage = __sprite.stage;
 
-								instance = new FrameSymbolInstance(frame, frameObject.id, frameObject.symbol, frameObject.depth, displayObject,
-									frameObject.clipDepth);
+									// if (__sprite.stage != null) displayObject.dispatchEvent(new Event(Event.ADDED_TO_STAGE, false, false));
+									#end
+
+									instance = new FrameSymbolInstance(frame, frameObject.id, frameObject.symbol, frameObject.depth, displayObject,
+										frameObject.clipDepth);
+								}
 							}
 						}
-					}
 
-					if (instance != null)
-					{
-						__activeInstancesByFrameObjectID.set(frameObject.id, instance);
-
-						if (!duplicate)
+						if (instance != null)
 						{
-							__activeInstances.push(instance);
-							__updateDisplayObject(instance.displayObject, frameObject);
+							if (instance.characterID == 130){
+								trace("Create Symbol 130");
+							}
+							__activeInstancesByFrameObjectID.set(frameObject.id, instance);
+
+							if (!duplicate)
+							{
+								__activeInstances.push(instance);
+								__updateDisplayObject(instance.displayObject, frameObject);
+							}
 						}
 					}
 				}
@@ -596,12 +762,26 @@ class AnimateTimeline extends Timeline
 
 		if (frameObject.matrix != null)
 		{
+			//frameObject.matrix = new Matrix(frameObject.matrix.a,frameObject.matrix.b,frameObject.matrix.c,frameObject.matrix.d, 0, 0);
 			displayObject.transform.matrix = frameObject.matrix;
+			
 		}
 
 		if (frameObject.colorTransform != null)
 		{
+			if (reset){
+				trace("CREATE frameObject.colorTransform.alphaMultiplier "+frameObject.colorTransform.alphaMultiplier);
+			}else{
+				trace("UPDATE frameObject.colorTransform.alphaMultiplier "+frameObject.colorTransform.alphaMultiplier);
+			
+			}
+			if (frameObject.symbol == 130){
+				trace("SYMBOL 130");
+			}
 			displayObject.transform.colorTransform = frameObject.colorTransform;
+			
+				//displayObject.alpha = frameObject.colorTransform.alphaOffset / 510 + 0.5;
+			
 		}
 		else if (reset #if !flash && !displayObject.transform.colorTransform.__isDefault(false) #end)
 		{
