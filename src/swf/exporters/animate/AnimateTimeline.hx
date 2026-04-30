@@ -202,7 +202,7 @@ class AnimateTimeline extends Timeline
 		for (sch in AnimateTimeline.__soundChannels.keys()) 
 		{
 			//var test  = AnimateTimeline.__soundChannels;
-			if (AnimateTimeline.__soundChannels.exists(sch) && AnimateTimeline.__soundChannels.get(sch) !=null&& sch != currentSoundId){
+			if (AnimateTimeline.__soundChannels.exists(sch) && AnimateTimeline.__soundChannels.get(sch) != null && sch != currentSoundId){
 				
 				AnimateTimeline.__soundChannels.get(sch).stop();
 				AnimateTimeline.__soundChannels.set(sch,null);
@@ -237,7 +237,7 @@ class AnimateTimeline extends Timeline
 		if (__soundChannel != null){
 			if(__soundChannel.hasEventListener(Event.SOUND_COMPLETE))
 			__soundChannel.removeEventListener(Event.SOUND_COMPLETE, __onSoundComplete );
-			if (savePosition && __soundChannel.position!=0){
+			if (savePosition && __soundChannel.position != 0){
 				__soundPosition = __soundChannel.position;
 			}
 			
