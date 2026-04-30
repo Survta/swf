@@ -198,10 +198,11 @@ class AnimateTimeline extends Timeline
 	public function stopSounds():Void
 	{
 		//return;
+		var currentSoundId = __symbol.hasSoundStream ? __soundStream.id : -1;
 		for (sch in AnimateTimeline.__soundChannels.keys()) 
 		{
 			//var test  = AnimateTimeline.__soundChannels;
-			if (AnimateTimeline.__soundChannels.exists(sch) && AnimateTimeline.__soundChannels.get(sch) !=null&& sch != __soundStream.id){
+			if (AnimateTimeline.__soundChannels.exists(sch) && AnimateTimeline.__soundChannels.get(sch) !=null&& sch != currentSoundId){
 				
 				AnimateTimeline.__soundChannels.get(sch).stop();
 				AnimateTimeline.__soundChannels.set(sch,null);
@@ -215,6 +216,37 @@ class AnimateTimeline extends Timeline
 			__soundPosition = null;
 			__soundChannel.removeEventListener(Event.SOUND_COMPLETE, __onSoundComplete );
 		}*/
+	}
+
+	private function __playSoundChannel(position:Null<Float> = null):Void
+	{
+		if (!__symbol.hasSoundStream || __sound == null) return;
+		__stopSoundChannel(false);
+		stopSounds();
+		__soundChannel = __sound.play();
+		if (position != null && position != 0)
+		{
+			__soundChannel.position = position;
+		}
+		AnimateTimeline.__soundChannels.set(__soundStream.id, __soundChannel);
+		__soundChannel.addEventListener(Event.SOUND_COMPLETE, __onSoundComplete );
+	}
+
+	private function __stopSoundChannel(savePosition:Bool):Void
+	{
+		if (__soundChannel != null){
+			if(__soundChannel.hasEventListener(Event.SOUND_COMPLETE))
+			__soundChannel.removeEventListener(Event.SOUND_COMPLETE, __onSoundComplete );
+			if (savePosition && __soundChannel.position!=0){
+				__soundPosition = __soundChannel.position;
+			}
+			
+			__soundChannel.stop();
+			if (__symbol.hasSoundStream){
+				AnimateTimeline.__soundChannels.set(__soundStream.id,null);
+			}
+			__soundChannel = null;
+		}
 	}
 	
 
@@ -243,11 +275,8 @@ class AnimateTimeline extends Timeline
 			trace("fr rate "+__frameTime);
 		}
 		if (__symbol.hasSoundStream && __soundPosition != null && __soundPosition != 0){
-			stopSounds();
-			__soundChannel = __sound.play();
-			__soundChannel.position = __soundPosition;
+			__playSoundChannel(__soundPosition);
 			__soundPosition = null;
-			__soundChannel.addEventListener(Event.SOUND_COMPLETE, __onSoundComplete );
 		}
 		//cast(__scope.getChildAt(0), MovieClip).dispatchEvent (new Event("documentPlaybackStateChange"));
 	}
@@ -257,7 +286,7 @@ class AnimateTimeline extends Timeline
 	{
 		if (__symbol.hasSoundStream){
 			var frameResolved = __resolveFrameReference(frame);
-			if (frameResolved < __soundStream.startFrame || frameResolved>=__soundStream.numFrames){
+			if (frameResolved < __soundStream.startFrame || frameResolved>=__soundStream.startFrame + __soundStream.numFrames){
 				return null;
 			}else{
 				
@@ -281,11 +310,12 @@ class AnimateTimeline extends Timeline
 		
 		
 		//__stop();
-			__play();
-		if (!((scene == null || scene == __currentScene.name) && (__resolveFrameReference(frame) == __currentFrame && __soundPosition!=null && __soundPosition!=0))){
-				
-				__soundPosition = __getSoundPosition(frame);
+		var soundPositionChanged = !((scene == null || scene == __currentScene.name) && (__resolveFrameReference(frame) == __currentFrame && __soundPosition!=null && __soundPosition!=0));
+		if (soundPositionChanged){
+			__soundPosition = __getSoundPosition(frame);
+			__stopSoundChannel(false);
 		}
+		__play();
 			
 	/*	var currentMovieclip:MovieClip = cast(__scope.getChildAt(0), MovieClip);
 		currentMovieclip.stop();*/
@@ -308,6 +338,10 @@ class AnimateTimeline extends Timeline
 				
 			}
 		//cast(__scope.getChildAt(0), MovieClip).dispatchEvent (new Event("documentPlaybackStateChange"));
+		if (__isPlaying && __soundPosition != null && __soundPosition != 0){
+			__playSoundChannel(__soundPosition);
+			__soundPosition = null;
+		}
 	}
 
 	public override function __gotoAndStop(frame:#if (haxe_ver >= "3.4.2") Any #else Dynamic #end, scene:String = null):Void
@@ -393,13 +427,7 @@ class AnimateTimeline extends Timeline
 		__isPlaying = false;
 		
 		if (__soundChannel != null){
-			if(__soundChannel.hasEventListener(Event.SOUND_COMPLETE))
-			__soundChannel.removeEventListener(Event.SOUND_COMPLETE, __onSoundComplete );	
-			if ( __soundChannel.position!=0){
-				__soundPosition = __soundChannel.position;
-			}
-			
-			__soundChannel.stop();
+			__stopSoundChannel(true);
 			stopSounds();
 			
 
@@ -451,10 +479,7 @@ class AnimateTimeline extends Timeline
 
 			if (__symbol.hasSoundStream){
 					if (currentFrame == __soundStream.startFrame){
-						stopSounds();
-						
-						__soundChannel = __sound.play();
-						__soundChannel.addEventListener(Event.SOUND_COMPLETE, __onSoundComplete );
+						__playSoundChannel();
 					}
 					
 				}
