@@ -113,6 +113,7 @@ class MovieClipTimeline extends Timeline
 		{
 			displayObject = new MorphShape(data, cast symbol);
 		}
+		
 		else
 		{
 			// trace("Warning: No SWF Support for " + Type.getClassName(Type.getClass(symbol)));

@@ -1,10 +1,15 @@
 package swf.exporters.animate;
 
+import swf.timeline.SoundStream;
 import swf.utils.SymbolUtils;
 import openfl.display.DisplayObject;
 import openfl.display.MovieClip;
+//import com.sunwork.LifeSlideMovieClip;
+import openfl.display.Scene;
 import openfl.display.Sprite;
 import openfl.geom.Rectangle;
+import openfl.media.Sound;
+import openfl.media.SoundChannel;
 
 #if !openfl_debug
 @:fileXml('tags="haxe,release"')
@@ -15,8 +20,12 @@ class AnimateSpriteSymbol extends AnimateSymbol
 {
 	public var baseClassName:String;
 	public var frames:Array<AnimateFrame>;
+	public var scenes:Array<Scene>;
 	public var scale9Grid:Rectangle;
-
+	
+	private var soundStream:SoundStream;		
+	private var hasSoundStream:Bool;		
+	
 	private var library:AnimateLibrary;
 
 	public function new()
@@ -24,11 +33,13 @@ class AnimateSpriteSymbol extends AnimateSymbol
 		super();
 
 		frames = new Array();
+		scenes = new Array();
 	}
 
 	private function __constructor(sprite:Sprite):Void
 	{
 		var timeline = new AnimateTimeline(library, this);
+		//if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (sprite, LifeSlideMovieClip))
 		if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (sprite, #if flash flash.display.MovieClip.MovieClip2 #else MovieClip #end))
 		{
 			var movieClip:MovieClip = cast sprite;
@@ -81,7 +92,7 @@ class AnimateSpriteSymbol extends AnimateSymbol
 			symbolType = Type.resolveClass(SymbolUtils.formatClassName(baseClassName));
 
 			if (symbolType == null)
-			{
+			{				
 				// Log.warn ("Could not resolve class \"" + className + "\"");
 			}
 		}
@@ -123,7 +134,7 @@ class AnimateSpriteSymbol extends AnimateSymbol
 		this.library = library;
 	}
 
-	private override function __initObject(library:AnimateLibrary, instance:DisplayObject):Void
+	private override function __initObject(library:AnimateLibrary, instance:Dynamic):Void
 	{
 		this.library = library;
 		__constructor(cast instance);
