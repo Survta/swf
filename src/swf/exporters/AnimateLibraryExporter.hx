@@ -8,6 +8,7 @@ import swf.data.filters.IFilter;
 import swf.data.SWFButtonRecord;
 import swf.data.SWFSymbol;
 import swf.exporters.ShapeBitmapExporter;
+import swf.exporters.ShapeBitmapExporter.BitmapFill;
 import swf.exporters.ShapeCommandExporter;
 import swf.tags.IDefinitionTag;
 import swf.tags.TagDefineBits;
@@ -25,8 +26,10 @@ import swf.tags.TagDefineShape;
 import swf.tags.TagDefineSound;
 import swf.tags.TagDefineSprite;
 import swf.tags.TagDefineText;
+import swf.tags.TagExportAssets;
 import swf.tags.TagPlaceObject;
 import swf.tags.TagSymbolClass;
+import swf.timeline.Frame;
 import swf.utils.SymbolUtils;
 import swf.SWFRoot;
 import swf.SWFTimelineContainer;
@@ -89,6 +92,14 @@ class AnimateLibraryExporter
 			if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, TagSymbolClass))
 			{
 				for (symbol in cast(tag, TagSymbolClass).symbols)
+				{
+					symbols.push(symbol);
+					symbolsByTagID.set(symbol.tagId, symbol);
+				}
+			}
+			else if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, TagExportAssets))
+			{
+				for (symbol in cast(tag, TagExportAssets).symbols)
 				{
 					symbols.push(symbol);
 					symbolsByTagID.set(symbol.tagId, symbol);
@@ -231,6 +242,7 @@ class AnimateLibraryExporter
 		
 		
 		writer.write(outputList);
+		outputFile.close();
 	}
 
 	private function addButton(tag:IDefinitionTag):Dynamic
@@ -582,7 +594,8 @@ class AnimateLibraryExporter
 
 			var frame:Dynamic = {};
 			frame.objects = [];
-			var bitmap, frameObject:Dynamic;
+			var bitmap:BitmapFill;
+			var frameObject:Dynamic;
 
 			for (i in 0...bitmaps.length)
 			{
@@ -725,13 +738,9 @@ class AnimateLibraryExporter
 		var lastModified = new Map<Int, Int>();
 		var zeroCharacter = -1;
 
-		var frame:Dynamic,
-			frameObject:Dynamic,
-			frameData,
-			placeTag:TagPlaceObject;
-			
-		
-		
+		var frame:Dynamic, frameObject:Dynamic, frameData:Frame, placeTag:TagPlaceObject;
+
+
 		for (frameData in tag.frames)
 		{
 			frame = {};
@@ -827,6 +836,11 @@ class AnimateLibraryExporter
 					frameObject.cacheAsBitmap = placeTag.bitmapCache != 0;
 				}
 
+				if (placeTag.metaData != null)
+				{
+					frameObject.metaData = placeTag.metaData;
+				}
+
 				lastModified.set(object.placedAtIndex, object.lastModifiedAtIndex);
 
 				if (frame.objects == null)
@@ -871,9 +885,6 @@ class AnimateLibraryExporter
 		{
 			symbol.scale9Grid = serializeRect(scalingGrid.splitter.rect);
 		}
-
-		var scripts = null;
-		var found = false;
 
 		var swfSymbol = symbolsByTagID.get(symbol.id);
 		if (swfSymbol != null)
@@ -1321,6 +1332,7 @@ class AnimateLibraryExporter
 			if (templateData != null && Reflect.hasField(symbol, "className") && symbol.className != null)
 			{
 				var className:String = symbol.className;
+				className = SymbolUtils.formatClassName(className, prefix);
 				var hidden = false;
 
 				var name = className;
@@ -1338,8 +1350,6 @@ class AnimateLibraryExporter
 
 					name = className.substr(lastIndexOfPeriod + 1);
 				}
-
-				name = SymbolUtils.formatClassName(name, prefix);
 
 				// TODO: Is this right? Is this hard-coded in Flash Player for internal classes?
 				if (packageName == "privatePkg") continue;
@@ -1366,57 +1376,57 @@ class AnimateLibraryExporter
 										if (libraryData.symbols.exists(object.symbol))
 										{
 											var childSymbol = libraryData.symbols.get(object.symbol);
-											var className = Reflect.hasField(childSymbol, "className") ? childSymbol.className : null;
+											var childClassName = Reflect.hasField(childSymbol, "className") ? childSymbol.className : null;
 
-											if (className == null)
+											if (childClassName == null)
 											{
 												var childType:SWFSymbolType = cast childSymbol.type;
 												if (childType == SPRITE)
 												{
-													className = "openfl.display.MovieClip";
+													childClassName = "openfl.display.MovieClip";
 												}
 												else if (childType == BITMAP)
 												{
-													className = "openfl.display.BitmapData";
+													childClassName = "openfl.display.BitmapData";
 												}
 												else if (childType == SHAPE)
 												{
-													className = "openfl.display.Shape";
+													childClassName = "openfl.display.Shape";
 												}
 													// else if (childType == BITMAP)
 													// {
-													// 	className = "openfl.display.Bitmap";
+													// 	childClassName = "openfl.display.Bitmap";
 												// }
 												else if (childType == DYNAMIC_TEXT)
 												{
-													className = "openfl.text.TextField";
+													childClassName = "openfl.text.TextField";
 												}
 												else if (childType == BUTTON)
 												{
-													className = "openfl.display.SimpleButton";
+													childClassName = "openfl.display.SimpleButton";
 												}
 												else
 												{
-													className = "Dynamic";
+													childClassName = "Dynamic";
 												}
 											}
 											else
 											{
-												if (StringTools.startsWith(className, "privatePkg."))
+												if (StringTools.startsWith(childClassName, "privatePkg."))
 												{
-													className = "Dynamic";
+													childClassName = "Dynamic";
 													hidden = true;
 												}
 												else
 												{
-													className = SymbolUtils.formatClassName(className, prefix);
+													childClassName = SymbolUtils.formatClassName(childClassName, prefix);
 												}
 											}
 
-											if (className != null)
+											if (childClassName != null)
 											{
 												objectReferences[object.name] = true;
-												classProperties.push({name: object.name, type: className, hidden: true});
+												classProperties.push({name: object.name, type: childClassName, hidden: true});
 											}
 										}
 									}
@@ -1443,7 +1453,7 @@ class AnimateLibraryExporter
 
 				var template = new Template(templateData);
 
-				var templateFile = new Asset("", Path.combine(Path.combine(targetPath, Path.directory(symbol.className.split(".").join("/"))), name + ".hx"),
+				var templateFile = new Asset("", Path.combine(Path.combine(targetPath, Path.directory(className.split(".").join("/"))), name + ".hx"),
 					cast AssetType.TEMPLATE);
 				templateFile.embed = false;
 				templateFile.data = template.execute(context);
@@ -1575,7 +1585,18 @@ class AnimateLibraryExporter
 
 					case DropShadowFilter(distance, angle, color, alpha, blurX, blurY, strength, quality, inner, knockout, hideObject):
 						result.push([
-							SWFFilterType.DROP_SHADOW, distance, angle, color, alpha, blurX, blurY, strength, quality, inner, knockout, hideObject
+							SWFFilterType.DROP_SHADOW,
+							distance,
+							angle,
+							color,
+							alpha,
+							blurX,
+							blurY,
+							strength,
+							quality,
+							inner,
+							knockout,
+							hideObject
 						]);
 
 					case GlowFilter(color, alpha, blurX, blurY, strength, quality, inner, knockout):
@@ -1673,7 +1694,6 @@ private class SWFDocument
 
 #if (haxe_ver < 4.0) @:enum #end
 private #if (haxe_ver >= 4.0) enum #end abstract SWFFrameObjectType(Int) from Int to Int
-
 {
 	public var CREATE = 0;
 	public var UPDATE = 1;
@@ -1682,7 +1702,6 @@ private #if (haxe_ver >= 4.0) enum #end abstract SWFFrameObjectType(Int) from In
 
 #if (haxe_ver < 4.0) @:enum #end
 private #if (haxe_ver >= 4.0) enum #end abstract SWFShapeCommandType(Int) from Int to Int
-
 {
 	public var BEGIN_BITMAP_FILL = 0;
 	public var BEGIN_FILL = 1;
@@ -1697,7 +1716,6 @@ private #if (haxe_ver >= 4.0) enum #end abstract SWFShapeCommandType(Int) from I
 
 #if (haxe_ver < 4.0) @:enum #end
 private #if (haxe_ver >= 4.0) enum #end abstract SWFSymbolType(Int) from Int to Int
-
 {
 	public var BITMAP = 0;
 	public var BUTTON = 1;
@@ -1711,7 +1729,6 @@ private #if (haxe_ver >= 4.0) enum #end abstract SWFSymbolType(Int) from Int to 
 
 #if (haxe_ver < 4.0) @:enum #end
 private #if (haxe_ver >= 4.0) enum #end abstract SWFFilterType(Int) from Int to Int
-
 {
 	public var BLUR = 0;
 	public var COLOR_MATRIX = 1;

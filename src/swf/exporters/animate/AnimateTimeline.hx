@@ -47,8 +47,20 @@ class AnimateTimeline extends Timeline
 	#if 0
 	// Suppress checkstyle warning
 	private static var __unusedImport:Array<Class<Dynamic>> = [
-		AnimateBitmapSymbol, AnimateButtonSymbol, AnimateDynamicTextSymbol, AnimateFontSymbol, AnimateShapeSymbol, AnimateSpriteSymbol,
-		AnimateStaticTextSymbol, AnimateSymbol, BlurFilter, ColorMatrixFilter, ConvolutionFilter, DisplacementMapFilter, DropShadowFilter, GlowFilter
+		AnimateBitmapSymbol,
+		AnimateButtonSymbol,
+		AnimateDynamicTextSymbol,
+		AnimateFontSymbol,
+		AnimateShapeSymbol,
+		AnimateSpriteSymbol,
+		AnimateStaticTextSymbol,
+		AnimateSymbol,
+		BlurFilter,
+		ColorMatrixFilter,
+		ConvolutionFilter,
+		DisplacementMapFilter,
+		DropShadowFilter,
+		GlowFilter
 	];
 	#end
 
@@ -91,7 +103,7 @@ class AnimateTimeline extends Timeline
 		var frameData:AnimateFrame;
 
 		#if hscript
-		var parser = null;
+		var parser:Parser = null;
 		#end
 		for (i in 0...__symbol.frames.length)
 		{
@@ -123,41 +135,11 @@ class AnimateTimeline extends Timeline
 						parser.allowTypes = true;
 					}
 
-					var program = parser.parseString(frameData.scriptSource);
-					var interp = new Interp();
-
-					var script = function(scope:MovieClip)
-					{
-						interp.variables.set("this", scope);
-						interp.execute(program);
-					};
-
+					var script = __createScriptCallback(parser, frameData.scriptSource);
 					scripts.push(new FrameScript(script, frame));
 					#elseif js
-					var script = untyped untyped #if haxe4 js.Syntax.code #else __js__ #end ("eval({0})", "(function(){" + frameData.scriptSource + "})");
-					var wrapper = function(scope:MovieClip)
-					{
-						try
-						{
-							script.call(scope);
-						}
-						catch (e:Dynamic)
-						{
-							Log.info("Error evaluating frame script\n "
-								+ e
-								+ "\n"
-								+ haxe.CallStack.exceptionStack().map(function(a)
-								{
-									return untyped a[2];
-								}).join("\n")
-								+ "\n"
-								+ e.stack
-								+ "\n"
-								+ untyped script.toString());
-						}
-					}
-
-					scripts.push(new FrameScript(wrapper, frame));
+					var script = __createScriptCallback(frameData.scriptSource);
+					scripts.push(new FrameScript(script, frame));
 					#end
 				}
 				catch (e:Dynamic)
@@ -543,7 +525,11 @@ class AnimateTimeline extends Timeline
 					{
 						if (targetDepth > mask.depth && targetDepth <= mask.clipDepth)
 						{
+							#if (openfl >= "9.5.0" && !flash)
+							child.clippingLayer = mask.displayObject;
+							#else
 							child.mask = mask.displayObject;
+							#end
 							maskApplied = true;
 							break;
 						}
@@ -561,13 +547,21 @@ class AnimateTimeline extends Timeline
 					__sprite.graphics.clear();
 					if (currentInstances.length > 0)
 					{
-						var shape:Shape = cast currentInstances[0].displayObject;
-						__sprite.graphics.copyFrom(shape.graphics);
+						var displayObject = currentInstances[0].displayObject;
+						if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (displayObject, Shape))
+						{
+							var shape:Shape = cast displayObject;
+							// for scale9Grid to work with the shape's graphics,
+							// we need to move them to the __sprite instead
+							// because scale9Grid does not apply to children
+							__sprite.graphics.copyFrom(shape.graphics);
+							__sprite.removeChild(displayObject);
+						}
 					}
 				}
 				else
 				{
-					var child;
+					var child:DisplayObject;
 					var i = currentInstances.length;
 					var length = __sprite.numChildren;
 
@@ -834,6 +828,13 @@ class AnimateTimeline extends Timeline
 			displayObject.cacheAsBitmap = frameObject.cacheAsBitmap;
 		}
 
+		#if (openfl >= "9.5.0")
+		if (frameObject.metaData != null)
+		{
+			displayObject.metaData = frameObject.metaData;
+		}
+		#end
+
 		#if openfljs
 		Reflect.setField(__sprite, displayObject.name, displayObject);
 		#end
@@ -857,6 +858,48 @@ class AnimateTimeline extends Timeline
 			}
 		}
 	}
+
+	#if hscript
+	@:noCompletion private function __createScriptCallback(parser:Parser, scriptSource:String):MovieClip->Void
+	{
+		var program = parser.parseString(scriptSource);
+		var interp = new Interp();
+
+		return function(scope:MovieClip):Void
+		{
+			interp.variables.set("this", scope);
+			interp.execute(program);
+		};
+	}
+	#end
+
+	#if js
+	@:noCompletion private function __createScriptCallback(scriptSource:String):MovieClip->Void
+	{
+		var script = untyped untyped #if haxe4 js.Syntax.code #else __js__ #end ("eval({0})", "(function(){" + scriptSource + "})");
+		return function(scope:MovieClip):Void
+		{
+			try
+			{
+				script.call(scope);
+			}
+			catch (e:Dynamic)
+			{
+				Log.info("Error evaluating frame script\n "
+					+ e
+					+ "\n"
+					+ haxe.CallStack.exceptionStack().map(function(a)
+					{
+						return untyped a[2];
+					}).join("\n")
+					+ "\n"
+					+ e.stack
+					+ "\n"
+					+ untyped script.toString());
+			}
+		};
+	}
+	#end
 }
 
 #if !openfl_debug

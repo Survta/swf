@@ -99,8 +99,14 @@ class Tools
 			// }
 
 			case MAC:
-				// untyped $loader.path = $array(path + "Mac/", $loader.path);
-				untyped $loader.path = $array(path + "Mac64/", $loader.path);
+				if (System.hostArchitecture == X64)
+				{
+					untyped $loader.path = $array(path + "Mac64/", $loader.path);
+				}
+				else if (System.hostArchitecture == ARM64)
+				{
+					untyped $loader.path = $array(path + "MacArm64/", $loader.path);
+				}
 
 			case LINUX:
 				var arguments = Sys.args();
@@ -319,7 +325,7 @@ class Tools
 					CLASS_PROPERTIES: classProperties
 				};
 				var template = new Template(templateData);
-				var targetPath;
+				var targetPath:String;
 
 				// if (project.target == IOS) {
 
@@ -630,12 +636,7 @@ class Tools
 							fileLabel = Path.normalize(file);
 						}
 
-						Log.info("\x1b[1mProcessing file:\x1b[0m "
-							+ fileLabel,
-							" - \x1b[1mProcessing file:\x1b[0m "
-							+ file
-							+ " \x1b[3;37m->\x1b[0m "
-							+ output);
+						Log.info("\x1b[1mProcessing file:\x1b[0m " + fileLabel, " - \x1b[1mProcessing file:\x1b[0m " + file + " \x1b[3;37m->\x1b[0m " + output);
 
 						processFile(file, output, filePrefix, generate);
 					}
@@ -977,7 +978,7 @@ class Tools
 				data.libraryType = "swf.SWFLibrary";
 				data.libraryArgs = [library.name + ".swf"];
 				data.name = library.name;
-				data.rootPath = "lib/" + library.name;
+				data.rootPath = "";
 
 				swf.library = library.name;
 
@@ -1054,7 +1055,7 @@ class Tools
 
 						if (library.generate != false)
 						{
-							var targetPath;
+							var targetPath:String;
 
 							if (project.target == IOS)
 							{
@@ -1453,7 +1454,7 @@ class Tools
 		{
 			output.haxelibs.push(new Haxelib("swf"));
 
-			var generatedPath;
+			var generatedPath:String;
 
 			if (project.target == IOS)
 			{

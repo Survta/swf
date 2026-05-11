@@ -10,6 +10,7 @@ import swf.data.consts.BlendMode;
 import swf.data.SWFButtonRecord;
 import swf.exporters.core.FilterType;
 import swf.exporters.core.ShapeCommand;
+import swf.exporters.ShapeBitmapExporter.BitmapFill;
 import swf.runtime.Bitmap;
 // #if hxp
 // import hxp.Log;
@@ -44,6 +45,7 @@ import swf.tags.TagDefineScalingGrid;
 import swf.tags.TagDefineShape;
 import swf.tags.TagDefineSprite;
 import swf.tags.TagDefineText;
+import swf.tags.TagExportAssets;
 import swf.tags.TagPlaceObject;
 import swf.tags.TagSymbolClass;
 import swf.SWFRoot;
@@ -101,6 +103,14 @@ class SWFLiteExporter
 					symbolsByTagID.set(symbol.tagId, symbol);
 				}
 			}
+			else if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (tag, TagExportAssets))
+			{
+				for (symbol in cast(tag, TagExportAssets).symbols)
+				{
+					processSymbol(symbol);
+					symbolsByTagID.set(symbol.tagId, symbol);
+				}
+			}
 		}
 	}
 
@@ -135,8 +145,8 @@ class SWFLiteExporter
 					if (object.placeMatrix != null)
 					{
 						var matrix = object.placeMatrix.matrix;
-						matrix.tx *= (1 / 20);
-						matrix.ty *= (1 / 20);
+						matrix.tx = object.placeMatrix.translateX / 20;
+						matrix.ty = object.placeMatrix.translateY / 20;
 
 						frameObject.matrix = matrix;
 					}
@@ -422,7 +432,8 @@ class SWFLiteExporter
 			var symbol = new SpriteSymbol();
 			var frame = new Frame();
 			frame.objects = [];
-			var bitmap, frameObject;
+			var bitmap:BitmapFill;
+			var frameObject:Dynamic;
 
 			for (i in 0...bitmaps.length)
 			{
@@ -556,8 +567,8 @@ class SWFLiteExporter
 				if (placeTag.matrix != null)
 				{
 					var matrix = placeTag.matrix.matrix;
-					matrix.tx *= (1 / 20);
-					matrix.ty *= (1 / 20);
+					matrix.tx = placeTag.matrix.translateX / 20;
+					matrix.ty = placeTag.matrix.translateY / 20;
 
 					frameObject.matrix = matrix;
 				}
@@ -642,7 +653,6 @@ class SWFLiteExporter
 			symbol.scale9Grid = scalingGrid.splitter.rect;
 		}
 
-		var scripts = null;
 		var swfSymbol = symbolsByTagID.get(symbol.id);
 		if (swfSymbol != null)
 		{
@@ -808,8 +818,8 @@ class SWFLiteExporter
 		symbol.records = records;
 
 		var matrix = tag.textMatrix.matrix;
-		matrix.tx *= (1 / 20);
-		matrix.ty *= (1 / 20);
+		matrix.tx = tag.textMatrix.translateX / 20;
+		matrix.ty = tag.textMatrix.translateY / 20;
 
 		symbol.matrix = matrix;
 

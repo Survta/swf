@@ -77,6 +77,7 @@ import openfl.filters.GlowFilter;
 		super();
 
 		this.id = id;
+		this.uuid = uuid;
 
 		instanceID = uuid != null ? uuid : id;
 
@@ -295,8 +296,9 @@ import openfl.filters.GlowFilter;
 			var rootIndex = json.root;
 			var symbolData:Array<Dynamic> = json.symbols;
 
-			var data, type:SWFSymbolType, symbol:AnimateSymbol = null;
-			var bitmapSymbol, spriteSymbol;
+			var data:Dynamic, type:SWFSymbolType, symbol:AnimateSymbol = null;
+			var bitmapSymbol:AnimateBitmapSymbol;
+			var spriteSymbol:AnimateSpriteSymbol;
 
 			symbols = new Map();
 			symbolsByClassName = new Map();
@@ -861,7 +863,7 @@ import openfl.filters.GlowFilter;
 				for (objectData in objects)
 				{
 					object = new AnimateFrameObject();
-					object.blendMode = Std.string(objectData.blendMode);
+					object.blendMode = objectData.blendMode != null ? Std.string(objectData.blendMode) : null;
 					object.cacheAsBitmap = objectData.cacheAsBitmap;
 					object.clipDepth = objectData.clipDepth;
 					object.colorTransform = objectData.colorTransform != null ? new ColorTransform(__pixel(objectData.colorTransform[0]),
@@ -876,6 +878,7 @@ import openfl.filters.GlowFilter;
 					object.symbol = objectData.symbol;
 					object.type = objectData.type;
 					object.visible = objectData.visible;
+					object.metaData = objectData.metaData;
 					frame.objects.push(object);
 				}
 			}
@@ -900,7 +903,6 @@ import openfl.filters.GlowFilter;
 }
 
 #if (haxe_ver >= 4.0) enum #else @:enum #end abstract SWFShapeCommandType(Int) from Int to Int
-
 {
 	public var BEGIN_BITMAP_FILL = 0;
 	public var BEGIN_FILL = 1;
@@ -914,7 +916,6 @@ import openfl.filters.GlowFilter;
 }
 
 #if (haxe_ver >= 4.0) enum #else @:enum #end abstract SWFSymbolType(Int) from Int to Int
-
 {
 	public var BITMAP = 0;
 	public var BUTTON = 1;
